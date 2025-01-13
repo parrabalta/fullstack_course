@@ -2,8 +2,9 @@ import mongoose from 'mongoose'
 import config from '../utils/config.js'
 
 
-
-const url = config.MONGODB_URI
+const url = process.env.NODE_ENV === 'test' 
+  ? process.env.TEST_MONGODB_URI
+  : process.env.NODE_ENV === 'development' ? process.env.DEV_MONGODB_URI : process.env.MONGODB_URI
 
 
 
@@ -21,8 +22,16 @@ mongoose.connect(url)
 
 
   const blogSchema = new mongoose.Schema({
-    title: String,
-    author: String,
+    title: {
+      type: String,
+      required: true,
+      unique: true
+    },
+    author: {
+      type: String,
+      required: true,
+      unique: false
+    },
     url: String,
     likes: Number
   })
@@ -36,4 +45,4 @@ blogSchema.set('toJSON', {
 })
 
 
-export default mongoose.model('Blog', blogSchema)
+export default mongoose.model('Blog', blogSchema, 'posts')

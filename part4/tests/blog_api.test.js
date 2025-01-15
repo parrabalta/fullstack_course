@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import supertest from 'supertest'
 import app from '../app.js'
 import Blog from '../models/blog.js'
+import User from '../models/user.js'
 import assert from 'node:assert'
 
 
@@ -23,14 +24,31 @@ const initialBlogs = [
   ]
 
 const api = supertest(app)
-
+let auth = {};
 
 beforeEach(async () => {
+    await User.deleteMany({})
+
     await Blog.deleteMany({})
-    let blogObject = new Blog(initialBlogs[0])
-    await blogObject.save()
-    blogObject = new Blog(initialBlogs[1])
-    await blogObject.save()
+
+
+    // blogs without user
+    const noteObjects = initialBlogs
+    .map(blog => new Blog(blog))
+    const promiseArray = noteObjects.map(blog => blog.save())
+    await Promise.all(promiseArray)
+
+      await api
+        .post('/api/users')
+        .send({ username: 'testUser', name: 'test', password: '1234' });
+  
+      const testUser = await api
+        .post('/api/login')
+        .send({ username: 'testUser', password: '1234' });
+      auth = {
+        Authorization: `Bearer ${testUser.body.token}`,
+      };
+
   })
 
 
@@ -57,74 +75,104 @@ test('The unique identifier property of the blog posts is id', async () => {
 })
 
 
-describe('post api/blogs testing', async () => {
-    
+describe('POST /api/blogs testing', () => {
+
   test('number of blogs in the system is increased by one', async () => {
     const newBlog = {
-      "title": "new blog posted",
-      "author": "pipa",
-      "url": "primero.com",
-      "likes": 12
-  }
+      title: 'new blog posted',
+      author: 'pipa',
+      url: 'primero.com',
+      likes: 12,
+    };
 
     await api
       .post('/api/blogs')
       .send(newBlog)
+      .set(auth)
       .expect(201)
-      .expect('Content-Type', /application\/json/)
+      .expect('Content-Type', /application\/json/);
 
-    const response = await Blog.find({})
+    const response = await Blog.find({});
+    const titles = response.map((r) => r.title);
+    const authors = response.map((r) => r.author);
 
-    const titles = response.map(r => r.title)
-    const authors = response.map(r => r.author)
+    assert.strictEqual(response.length, initialBlogs.length + 1);
+    assert(titles.includes('new blog posted'));
+    assert(authors.includes('pipa'));
+  });
 
-    assert.strictEqual(response.length, initialBlogs.length + 1)
-    assert(titles.includes('new blog posted'))
-    assert(authors.includes('pipa'))
-
-  })
-  
   test('if likes property is missing, set value 0', async () => {
     const newBlog = {
-      "title": "likes property is missing",
-      "author": "pipa",
-      "url": "primero.com"
-  }
+      title: 'likes property is missing',
+      author: 'pipa',
+      url: 'primero.com',
+    };
+
+    await api
+      .post('/api/blogs')
+      .set(auth)
+      .send(newBlog)
+      .expect(201);
+
+    const response = await Blog.find({});
+    const result = response.filter((blog) => blog.title === 'likes property is missing');
+    assert.strictEqual(result[0].likes, 0);
+  });
+
+  test('returns 400 when sending null title/author', async () => {
+    const newBlog = {
+      author: 'pipa',
+      url: 'primero.com',
+    };
+
+    await api
+      .post('/api/blogs')
+      .set(auth)
+      .send(newBlog)
+      .expect(400);
+  });
+
+  test('returns 401 Unauthorized if token is not provided', async () => {
+    const newBlog = {
+      title: 'new blog posted',
+      author: 'pipa',
+      url: 'primero.com',
+      likes: 12,
+    };
+
     await api
       .post('/api/blogs')
       .send(newBlog)
-      .expect(201)
-      
-      const response = await Blog.find({})
-      const result = response.filter(blog => blog.title === 'likes property is missing')
-      assert.strictEqual(result[0].likes, 0)
-    })
+      .expect(401);
+  });
+});
 
-    test('returns 400 when sending null title/author', async () => {
-      const newBlog = {
-        "author": "pipa",
-        "url": "primero.com"
-    }
-      await api
-        .post('/api/blogs')
-        .send(newBlog)
-        .expect(400)
-      
-      })
-  
-
-  
-  })
 
 
   describe('deletion of a blog', () => {
     test('succeeds with status code 204 if id is valid', async () => {
-      const blogsAtStart = await Blog.find({})
-      const blogToDelete = blogsAtStart[0]
 
+      const newBlog = {
+        title:"Blog to be deleted",
+        author:"balta",
+        url:"balta.com",
+        likes:12
+      }
+  
       await api
-        .delete(`/api/blogs/${blogToDelete.id}`)
-        .expect(204)
+        .post('/api/blogs')
+        .send(newBlog)
+        .set(auth)
+        .expect(201)
+
+      const blogsAtStart = await Blog.find({})
+
+      const blogToDelete = blogsAtStart.find(blog => blog.title === newBlog.title).toJSON()
+      
+      await api
+      .delete(`/api/blogs/${blogToDelete.id}`)
+      .set(auth)
+      .expect(204)
 
       const blogsAtEnd = await Blog.find({})
 
@@ -141,15 +189,16 @@ describe('post api/blogs testing', async () => {
     test('Blog update successful ', async () => {
   
       const newBlog = {
-        title:"update testing",
-        author:"pipa",
-        url:"pipa.com",
-        likes:15
+        title:"Blog to be updated",
+        author:"balta",
+        url:"balta.com",
+        likes:12
       }
   
       await api
         .post('/api/blogs')
         .send(newBlog)
+        .set(auth)
         .expect(201)
   
       const blogs = await Blog.find({})
@@ -163,6 +212,7 @@ describe('post api/blogs testing', async () => {
       await api
         .put(`/api/blogs/${blogToUpdate.id}`)
         .send(updatedBlog)
+        .set(auth)
         .expect(200)
         .expect('Content-Type', /application\/json/)
   

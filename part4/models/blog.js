@@ -1,25 +1,4 @@
 import mongoose from 'mongoose'
-import config from '../utils/config.js'
-
-
-const url = process.env.NODE_ENV === 'test' 
-  ? process.env.TEST_MONGODB_URI
-  : process.env.NODE_ENV === 'development' ? process.env.DEV_MONGODB_URI : process.env.MONGODB_URI
-
-
-
-mongoose.set('strictQuery',false)
-
-console.log('connecting to', url)
-
-mongoose.connect(url)
-  .then(() => {
-    console.log('connected to MongoDB')
-  })
-  .catch(error => {
-    console.log('error connecting to MongoDB:', error.message)
-  })
-
 
   const blogSchema = new mongoose.Schema({
     title: {
@@ -33,7 +12,11 @@ mongoose.connect(url)
       unique: false
     },
     url: String,
-    likes: Number
+    likes: Number,
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
   })
 
 blogSchema.set('toJSON', {

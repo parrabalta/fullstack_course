@@ -1,12 +1,12 @@
 import mongoose from 'mongoose'
 
 const userSchema = new mongoose.Schema({
-    username: {
-        type: String,
-        minlength: 3,
-        required: true,
-        unique: true
-      },
+  username: {
+    type: String,
+    minlength: 3,
+    required: true,
+    unique: true
+  },
   name: {
     type: String,
     minlength: 3,

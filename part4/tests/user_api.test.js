@@ -41,10 +41,10 @@ describe('when there is initially one user in db', () => {
     assert(usernames.includes(newUser.username))
   })
 
-  
+
 })
 
 after(async () => {
-  await mongoose.connection.close();
-  console.log('MongoDB connection closed');
-});
+  await mongoose.connection.close()
+  console.log('MongoDB connection closed')
+})
